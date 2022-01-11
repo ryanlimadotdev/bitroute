@@ -1,0 +1,25 @@
+{
+    "name": "ryanlimati/bitroute",
+    "version": "1.0.0",
+    "description": "A small router with simplest syntax only with JSON",
+    "type": "library",
+    "authors": [
+        {
+            "name": "Ryan Lima",
+            "email": "ryanlimati@protonmail.com"
+        }
+    ],
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "BitRoute\\BitRoute\\": "src/"
+        }
+    },
+    "require": {
+        "php": ">=8.0.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.0",
+        "nunomaduro/phpinsights": "^2.0"
+    }
+}
