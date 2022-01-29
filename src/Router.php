@@ -13,15 +13,21 @@ final class Router
 {
 	private string $uri;
 	private int $fromFileCount = 0;
+	/** @var array<string|array> */
 	private array $controllers = [];
-	private array $endpoints = [];
 	/** @var array<string> */
+	private array $endpoints = [];
 	private string $requestMethod;
 	private mixed $response = '';
+	/** @var array<string> */
 	private array $postForm;
 	private Controller $defaultController;
 
 
+	/** 
+	 * @param array<string> $serverParams 
+	 * @param array<string> $postForm 
+	*/
 	public function __construct(array $serverParams, array $postForm)
 	{
 		$this->requestMethod = $serverParams['REQUEST_METHOD'];
@@ -30,11 +36,11 @@ final class Router
 	}
 
 
-	public function addRoutesFromFile(?string $file = null): void
+	public function addRoutesFromFile(string $file): void
 	{
 		$this->fromFileCount++;
 		if(!is_file($file)) {
-			throw new \RouterException(1, "Can't locate the file!");
+			throw new RouterException(1, "Can't locate the file!");
 		}
 		$routeGroups = json_decode(file_get_contents($file), true);
 		try {
@@ -74,33 +80,49 @@ final class Router
 		if ($this->fromFileCount < 1) {
 			throw new Exception(2,'No route added');
 		}		
-		foreach($this->endpoints as $endpoint => $numberOfArgs) {
-			if (str_contains($this->uri, $endpoint)) {
-				$stringArgs = str_replace($endpoint, '', $this->uri);
-				if($this->requestMethod === 'GET' OR $this->requestMethod === 'DELETE') {
-					$requestArguments = $this->stripArgsToArray($stringArgs);
-					if (count($requestArguments) === $numberOfArgs) {
-						$controller = new Controller($this->controllers[$endpoint]);
-						$this->response = $controller->execute($requestArguments);
-						return;
-					}
+		foreach($this->endpoints as $endpoint => $argsCount) {
+			$endpointPos = strpos($this->uri, $endpoint);
+			if ($endpointPos === false) {
+				continue;
+			}
+			$nextChar = substr($this->uri, strlen($endpoint), 1);
+			if (!( $nextChar === '/' OR $nextChar=== '')) {
+				continue;
+			}
+
+			if($this->requestMethod === 'GET' OR $this->requestMethod === 'DELETE') {
+
+				$uriEndpointRemoved = str_replace($endpoint, '', $this->uri);
+				$arguments = $this->stripArgsToArray($uriEndpointRemoved);
+
+				if (count($arguments) !== $argsCount) {
+					continue;
 				}
-				if($this->requestMethod === 'POST' OR $this->requestMethod === 'PUT') {
-					$controllerArray = $this->controllers[$endpoint];
-					if(array_diff($controllerArray['post_fields'], array_keys($this->postForm)) === []) {
-						$controller = new Controller($controllerArray);
-						$this->response = $controller->execute($this->postForm);
-						return;
-					}
-					$this->response = "Too few arguments";
-					return;
-				}
+				$this->initController($endpoint, $arguments);
+				return;
+			}
+			if ($this->requestMethod === 'POST' OR $this->requestMethod === 'PUT') {
+				$this->initController($endpoint, $this->postForm);
+				return;
 			}
 		}
+
 		$controller = $this->defaultController;
 		$this->response = $controller->execute(null);
 		return;
 	}
+
+	public function initController(string $endpoint, array $arguments): void
+	{
+		try {
+			$controller = new Controller($this->controllers[$endpoint]);
+			$this->response = $controller->execute($arguments);
+		} catch (\Exception) {
+			$this->response = "";
+		}
+		return;
+	}
+
 
 	public function defaultController(array|string $from, bool $isFromFile = false): void
 	{
